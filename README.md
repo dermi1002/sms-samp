@@ -16,3 +16,6 @@ Because of the nature of sms-tools, porting for Windows 10 will not be made unle
 - [ ] Pitchbend
 
 More to add...
+
+## Acknoledgments:
+Straycat: UTAU Resampler made using WORLD in Python
