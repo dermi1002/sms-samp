@@ -1,5 +1,5 @@
 # SMS-samp
-An OpenUtau Resampler made using sms-tools in Python
+An UTAU Resampler made using sms-tools in Python
 
 ## DISCLAIMER
 This project is an unfinished work in progress. Until more functionality arrives, it is not ready for release. Please look at the Function Checklist for details.
@@ -7,7 +7,7 @@ This project is an unfinished work in progress. Until more functionality arrives
 Because of the nature of sms-tools, porting for Windows 10 will not be made unless it is done via user contributions.
 
 ## Function Checklist
-- [ ] Opening and playing audio files
+- [ ] ~~Opening~~ and playing audio files
 - [ ] Note Pitch Recognition
 - [ ] Consonant Velocity
 - [ ] Offset, Consonant Area, Note Length, and Cutoff
