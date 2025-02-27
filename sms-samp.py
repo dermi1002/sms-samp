@@ -1,16 +1,32 @@
-import smstools as sms
-import soundfile as sf  # Audio read/write
+import logging
+logging.basicConfig(format='%(message)s', level=logging.INFO)
 import sys
-import os # File read/write
-import argparse
+import os
+import pyworld as world # Vocoder
+import smstools as sms # Main Vocoder
+import numpy as np
+from numba import njit, vectorize, float64, optional # JIT compilation stuff (and ufuncs)
+import soundfile as sf # WAV read + write
+import scipy.signal as signal # for filtering
+import scipy.interpolate as interp # Interpolator for feats
+import scipy.ndimage as ndimage
+import resampy # Resampler (as in sampling rate stuff)
+from pathlib import Path # path manipulation
+import re
 
 smssamp_version: str = '0.1.0'
-smssamp_help: str = '''Usage: python3 main.py --infile [in_file] --outfile [out_file]
+smssamp_help: str = '''Usage: python3 sms-samp.py --infile [in_file] --outfile [out_file]
 
 Arguments:
 in_file = Path to input file [ex. /path/to/input.wav]
 out_file = Path to output file [ex. /path/to/output.wav]
 '''
+
+notes = {'C' : 0, 'C#' : 1, 'D' : 2, 'D#' : 3, 'E' : 4, 'F' : 5, 'F#' : 6, 'G' : 7, 'G#' : 8, 'A' : 9, 'A#' : 10, 'B' : 11} # Note names lol
+note_re = re.compile(r'([A-G]#?)(-?\d+)') # Note Regex for conversion
+default_fs = 44100 # UTAU only really likes 44.1khz
+fft_size = world.get_cheaptrick_fft_size(default_fs, world.default_f0_floor) # It's just 2048 but you know
+cache_ext = '.sc.npz' # cache file extension
 
 argp = argparse.ArgumentParser()
 argp.add_argument('-i', '--infile', type=str)
