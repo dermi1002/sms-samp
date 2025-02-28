@@ -7,7 +7,7 @@ This project is an unfinished work in progress. Until more functionality arrives
 Because of the nature of sms-tools, porting for Windows will not be made except for user contributions.
 
 ## Function Checklist
-- [ ] ~~Opening~~ and playing audio files
+- [ ] Opening and playing audio files
 - [ ] Note Pitch Recognition
 - [ ] Offset, Consonant Area, Note Length, and Cutoff
 - [ ] Consonant Velocity

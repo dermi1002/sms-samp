@@ -35,7 +35,7 @@ optional arguments:
 \ttempo\t\tThe tempo of the render. Needs to have a ! at the start. (default: !100)
 \tpitch_string\tThe UTAU pitchbend parameter written in Base64 with RLE encoding. (default: AA)'''
 
-notes = {'C' : 0, 'C#' : 1, 'D' : 2, 'D#' : 3, 'E' : 4, 'F' : 5, 'F#' : 6, 'G' : 7, 'G#' : 8, 'A' : 9, 'A#' : 10, 'B' : 11} # Note names lol
+notes = {'C' : 0, 'C#' : 1, 'D' : 2, 'D#' : 3, 'E' : 4, 'F' : 5, 'F#' : 6, 'G' : 7, 'G#' : 8, 'A' : 9, 'A#' : 10, 'B' : 11} # Note names
 note_re = re.compile(r'([A-G]#?)(-?\d+)') # Note Regex for conversion
 default_fs = 44100 # UTAU only really likes 44.1khz
 fft_size = world.get_cheaptrick_fft_size(default_fs, world.default_f0_floor) # It's just 2048 but you know
@@ -46,7 +46,7 @@ f0_floor = world.default_f0_floor
 f0_ceil = 1760
 
 # Flags
-flags = ['fe', 'fl', 'fo', 'fv', 'fp', 've', 'vo', 'g', 't', 'A', 'B', 'G', 'P', 'S', 'p', 'R', 'D', 'C']
+flags = ['g', 'B', 'G', 'P']
 flag_re = '|'.join(flags)
 flag_re = f'({flag_re})([+-]?\\d+)?'
 flag_re = re.compile(flag_re)
@@ -589,37 +589,11 @@ class Resampler:
         
         logging.info('Checking flags.')
         # Flag interpretation area
-        ### BEFORE HZ CONVERSION FLAGS ###
-        # Pitch offset flag
-        if 't' in self.flags.keys():
-            pitch_render += self.flags['t'] / 100
 
         # Convert pitch to Hertz and add F0 offset for modulation
         f0_render = midi_to_hz(pitch_render) + f0_off_render * mod
 
         ### BEFORE RENDER FLAGS ###
-        # Vocal Fry flag
-        if 'fe' in self.flags.keys():
-            logging.info('Adding vocal fry.')
-            fry = self.flags['fe'] / 1000
-            fry_len = 0.075
-            fry_offset = 0
-            fry_pitch = f0_floor
-            if 'fl' in self.flags.keys(): # check length flag
-                fry_len = max(self.flags['fl'] / 1000, 0.001)
-
-            if 'fo' in self.flags.keys():
-                fry_offset = self.flags['fo'] / 1000
-
-            if 'fp' in self.flags.keys():
-                fry_pitch = max(self.flags['fp'], 0)
-            
-            # Prepare envelope
-            t_fry = t - t[con] - fry_offset # temporal positions centered around the consonant shifted by offset
-            amt = smoothstep(-fry - fry_len / 2, -fry + fry_len / 2, t_fry) * smoothstep(fry_len / 2, -fry_len / 2, t_fry) #fry envelope
-
-            f0_render = f0_render * (1 - amt) + fry_pitch * amt # mix low F0 for fry
-
         # Gender/Formant shift flag
         if 'g' in self.flags.keys():
             logging.info('Shifting formants.')
@@ -645,21 +619,6 @@ class Resampler:
                 ap_render[np.isclose(husk, 1),:] = 1 # make sure unvoiced areas stay unvoiced... only happens if breathiness is 0 but too much if statements
         else:
             breath = 0
-
-        # Distortion flag
-        if 'D' in self.flags.keys():
-            logging.info('Adding distortion.')
-            distortion_amount = clip(self.flags['D'], 0, 100)
-            ap_render = ap_render * (distortion_amount / 10)
-            f0_render = f0_render + np.random.normal(0, distortion_amount, len(f0_render))
-
-        # Coarsness flag
-        if 'C' in self.flags.keys():
-            logging.info('Adding coarseness.')
-            coarseness = clip(self.flags['C'], 0, 100)
-            for i in range(len(f0_render)):
-                if i % 6 == 0:
-                    f0_render[i] = 60
             
         #Peak compressor flag
         flag_peak = self.flags.get('P', 86)
@@ -684,14 +643,7 @@ class Resampler:
         # remove pitch in areas with max aperiodicity
         f0_render[np.isclose(husk, 1)] = 0
         render = world.synthesize(f0_render, sp_render, ap_render, default_fs)
-        
-        ### AFTER RENDER FLAGS ###
-        # Max aperiodicity flag
-        if 'S' in self.flags.keys():
-            amt = clip(self.flags['S'] / 100, 0, 1)
-            render_ap = world.synthesize(f0_render, sp_render, np.ones(ap_render.shape), default_fs)
-            render = render * (1 - amt) + render_ap * amt
-        
+
         if breath > 50: # mix max breathiness signal
             logging.info('Raising breathiness.')
             breath = clip((breath - 50) / 50, 0, 1)
@@ -700,72 +652,12 @@ class Resampler:
             render = render * (1 - breath) + render_breath * breath # Mix signals
             
         t_sample = np.arange(len(render)) / default_fs # temporal position per sample
-        if 'fe' in self.flags.keys():
-            fry = self.flags['fe'] / 1000
-            fry_len = 0.05
-            fry_offset = 0
-            fry_vol = 0.1
-            if 'fl' in self.flags.keys(): # check length flag
-                fry_len = max(self.flags['fl'] / 1000, 0.001)
-
-            if 'fo' in self.flags.keys():
-                fry_offset = self.flags['fo'] / 1000
-
-            if 'fv' in self.flags.keys():
-                fry_vol = clip(self.flags['fv'] / 100, 0, 1)
-            
-            # Prepare envelope
-            t_fry = t_sample - t[con] - fry_offset # temporal positions centered around the consonant shifted by offset
-            amt = smoothstep(-fry - fry_len / 2, -fry + fry_len / 2, t_fry) * smoothstep(fry_len / 2, -fry_len / 2, t_fry) #fry envelope
-            env = 1 - amt + fry_vol * amt
-
-            render_hp = highpass(render, cutoff=300) # add a highpass through the fry area
-            render = render * (1 - amt) + render_hp * amt
-            render *= env
-        
-        # Fix voicing flag
-        if 've' in self.flags.keys():
-            logging.info('Fixing voicing.')
-            end_breath = self.flags['ve'] / 1000
-            render_breath = world.synthesize(f0_render, sp_render * np.square(ap_render), np.ones(ap_render.shape), default_fs) # apply band AP on regular specgram, max out ap  
-
-            offset = 0
-            if 'vo' in self.flags.keys(): # check offset flag
-                offset = self.flags['vo'] / 1000
-                logging.info(offset)
-            
-            amt = smoothstep(-end_breath / 2, end_breath / 2, t_sample - t[con] - offset) # smoothstep with consonant at 0.5
-            render = render * (1 - amt) + render_breath * amt # mix sample based on envelope
             
         normalize = self.flags.get('p', 6)
 
         if normalize >= 0:
             normal = render / np.max(render)
             render = normal * (10 ** (-normalize / 20))
-
-        ### AFTER PEAK NORMALIZATION ###
-        # Tremolo flag
-        if 'A' in self.flags.keys():
-            logging.info('Adding tremolo.')
-            tremolo = self.flags['A'] / 100
-            
-            pitch_sample = pitch_interp(clip(t_sample, 0, t_pitch[-1])) # probably bad because of how low the sampling rate is for the pitch
-            pitch_smooth = lowpass(pitch_sample, cutoff=8, order=16)
-            vibrato = highpass(pitch_smooth, cutoff=4, order=16)
-
-            amt = np.maximum(tremolo * vibrato + 1, 0)
-            render = render * amt
-        # Growl flag
-        if 'R' in self.flags.keys():
-            logging.info('Adding tremolo growl flag.')
-            depth = clip(self.flags['R'] / 100, 0, 1)
-
-            rate = 75
-
-            time = np.arange(len(render)) / default_fs
-            sine_wave = np.sin(2 * np.pi * rate * time)
-
-            render = render * (2 - depth * sine_wave) / 2
 
         render *= vol # volume
         save_wav(self.out_file, render)
