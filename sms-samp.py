@@ -28,11 +28,11 @@ out_file = Path to output file [ex. /path/to/output.wav]
 
 notes = {'C' : 0, 'C#' : 1, 'D' : 2, 'D#' : 3, 'E' : 4, 'F' : 5, 'F#' : 6, 'G' : 7, 'G#' : 8, 'A' : 9, 'A#' : 10, 'B' : 11} # Note names
 note_re = re.compile(r'([A-G]#?)(-?\d+)') # Note Regex for conversion
-fft = 1024
+fftSize = 1024
 cache_ext = '.sc.npz' # cache file extension
 
-minf0 = 140
-maxf0 = 1760
+f0Floor = 32
+f0Ceil = 1760
 
 # Flags
 flags = ['g', 'B', 'G', 'P']
@@ -54,7 +54,7 @@ def read_wav(loc):
     ndarray
         Data read from WAV file remapped to [-1, 1] and in 44.1kHz
     """
-    fs, x = UF.wavread(loc) # 
+    fs, x = UF.wavread(loc) # sms-tools has their own wav read/write systems
 
     return x
 
@@ -109,4 +109,3 @@ def save_wav(loc, x):
 
 if __name__ == '__main__':
     logging.info(f'SMS-samp {smssamp_version}')
-    print(f'HPS Args:\n{dir(smstools.models.hpsModel)}\n\nUtilFuntion Args:\n{dir(smstools.models.utilFunctions)}\n\nHPSTransformation Args:\n{dir(smstools.transformations.hpsTransformations)}\n\nHarmonic Args:\n{dir(smstools.transformations.harmonicTransformations)}')
