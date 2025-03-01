@@ -6,15 +6,13 @@ import os
 import smstools # Main Vocoder
 import numpy as np
 from numba import njit, vectorize, float64, optional # JIT compilation stuff (and ufuncs)
-import soundfile as sf # WAV read + write
 import scipy.signal as signal # for filtering
 import scipy.interpolate as interp # Interpolator for feats
 import scipy.ndimage as ndimage
-import resampy # Resampler (as in sampling rate stuff)
 from pathlib import Path # path manipulation
 import re
 import argparse
-# from signal import get_window
+from scipy.signal import get_window
 from smstools.models import hpsModel as HPS
 from smstools.transformations import hpsTransformations as HPST
 from smstools.transformations import harmonicTransformations as HT
@@ -30,8 +28,7 @@ out_file = Path to output file [ex. /path/to/output.wav]
 
 notes = {'C' : 0, 'C#' : 1, 'D' : 2, 'D#' : 3, 'E' : 4, 'F' : 5, 'F#' : 6, 'G' : 7, 'G#' : 8, 'A' : 9, 'A#' : 10, 'B' : 11} # Note names
 note_re = re.compile(r'([A-G]#?)(-?\d+)') # Note Regex for conversion
-default_fs = 44100 # UTAU only really likes 44.1khz
-fft = 2048
+fft = 1024
 cache_ext = '.sc.npz' # cache file extension
 
 minf0 = 140
@@ -45,7 +42,7 @@ flag_re = re.compile(flag_re)
 
 # WAV read/write
 def read_wav(loc):
-    """Read audio files supported by soundfile and resample to 44.1kHz if needed. Mixes down to mono if needed.
+    """Read audio files. sms-tools will give an error if their sampling rate isn't 44.1kHz and in mono.
 
     Parameters
     ----------
@@ -57,27 +54,7 @@ def read_wav(loc):
     ndarray
         Data read from WAV file remapped to [-1, 1] and in 44.1kHz
     """
-    if type(loc) == str: # make sure input is Path
-        loc = Path(loc)
-
-    exists = loc.exists()
-    if not exists: # check for alternative files
-        for ext in sf.available_formats().keys():
-            loc = loc.with_suffix('.' + ext.lower())
-            exists = loc.exists()
-            if exists:
-                break
-
-    if not exists:
-        raise FileNotFoundError("No supported audio file was found.")
-    
-    x, fs = sf.read(loc)
-    if len(x.shape) == 2:
-        # Average all channels... Probably not too good for formats bigger than stereo
-        x = np.mean(x, axis=1)
-
-    if fs != default_fs:
-        x = resampy.resample(x, fs, default_fs)
+    fs, x = UF.wavread(loc) # 
 
     return x
 
@@ -96,7 +73,7 @@ def save_wav(loc, x):
     -------
     None
     """
-    sf.write(loc, x, default_fs, 'PCM_16')
+    UF.wavwrite(y, fs, loc)
 
 #argp = argparse.ArgumentParser()
 #argp.add_argument('-i', '--infile', type=str)

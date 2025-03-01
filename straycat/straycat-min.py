@@ -202,9 +202,6 @@ def midi_to_hz(x):
     """MIDI note number to Hertz using equal temperament. A4 = 440 Hz."""
     return 440 * np.exp2((x - 69) / 12)
 
-##def hz_to_midi(x):
-##    return 12 * np.log2(x / 440) + 69
-
 # WAV read/write
 def read_wav(loc):
     """Read audio files supported by soundfile and resample to 44.1kHz if needed. Mixes down to mono if needed.
